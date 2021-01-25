@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.examstack.management.persistence.CmsCatMapper">
+	<insert id="addCmsCat" parameterType="com.examstack.common.domain.rules.CmsCat" useGeneratedKeys="true" keyProperty="id" >
+		insert into cms_cat(type,cat_name,create_time,creator_id,creator)
+		values(#{type},#{catName}, now(),#{creatorId},#{creator})
+	</insert>
+	<select id="getCmsCatList" resultType="com.examstack.common.domain.rules.CmsCat">
+		select id AS id, type AS type, cat_name AS catName,
+		 creator_id AS creatorId ,creator AS creator,create_time AS createTime  FROM CMS_CAT
+		 WHERE 1=1
+		<if test="type != null">
+			AND type = #{type}
+		</if>
+		 ORDER BY id desc
+	</select>
+	<select id="getCmsCatById" resultType="com.examstack.common.domain.rules.CmsCat">
+		select id AS id , type as type, cat_name AS catName,
+		 creator_id AS creatorId ,creator AS creator,create_time AS createTime  FROM CMS_CAT
+		 WHERE id = #{id}
+	</select>
+
+	<delete id="deleteCmsCatById">
+		delete from CMS_CAT where
+		id=#{id}
+	</delete>
+
+	<update id="updateCmsCat">
+		update CMS_CAT
+		<set>
+			<if test="type != null">
+				type = #{type},
+			</if>
+			<if test="catName != null">
+				cat_name = #{catName},
+			</if>
+			<if test="creatorId != 0">
+				creator_id=#{creatorId},
+			</if>
+			<if test="creator != null">
+				creator = #{creator},
+			</if>
+			create_time = now(),
+		</set>
+		<where>
+			id = #{id}
+		</where>
+	</update>
+</mapper>

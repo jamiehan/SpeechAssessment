@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.examstack.management.persistence.CmsRulesMapper">
+	<insert id="addCmsRules" parameterType="com.examstack.common.domain.rules.CmsRules" useGeneratedKeys="true" keyProperty="id" >
+		insert into cms_rules(title,content,cat_id,create_time,creator_id,creator)
+		values(#{title},#{content},#{catId}, now(),#{creatorId},#{creator})
+	</insert>
+	<select id="getCmsRulesList" resultType="com.examstack.common.domain.rules.CmsRules">
+		select CMS_RULES.id AS id , CMS_RULES.title as title, CMS_RULES.content AS content, CMS_RULES.cat_id AS catId,cms_cat.cat_name AS catName,
+		 CMS_RULES.creator_id AS creatorId ,CMS_RULES.creator AS creator,CMS_RULES.create_time AS createTime  FROM CMS_RULES
+		 LEFT JOIN cms_cat ON CMS_RULES.cat_id = cms_cat.id
+		 WHERE 1=1
+		<if test="catId != null and catId != ''">
+			AND CMS_RULES.cat_id = #{catId}
+		</if>
+		 ORDER BY CMS_RULES.id DESC
+	</select>
+	<select id="getCmsRulesById" resultType="com.examstack.common.domain.rules.CmsRules">
+		select id AS id , title as title, content AS content, cat_id AS catId,
+		 creator_id AS creatorId ,creator AS creator,create_time AS createTime  FROM CMS_RULES
+		 WHERE id = #{id}
+	</select>
+
+	<delete id="deleteCmsRulesById">
+		delete from CMS_RULES where
+		id=#{id}
+	</delete>
+
+	<update id="updateCmsRules">
+		update CMS_RULES
+		<set>
+			<if test="title != null">
+				title = #{title},
+			</if>
+			<if test="content != null">
+				content = #{content},
+			</if>
+			<if test="catId != null">
+				cat_id = #{catId},
+			</if>
+			<if test="creatorId != 0">
+				creator_id=#{creatorId},
+			</if>
+			<if test="creator != null">
+				creator = #{creator},
+			</if>
+			create_time = now(),
+		</set>
+		<where>
+			id = #{id}
+		</where>
+	</update>
+</mapper>

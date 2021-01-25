@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.examstack.management.persistence.CmsNoteMapper">
+	<insert id="addCmsNote" parameterType="com.examstack.common.domain.cms.CmsNote" useGeneratedKeys="true" keyProperty="id" >
+		insert into cms_note(note_name,note_content,create_time,creator_id,creator)
+		values(#{noteName},#{noteContent}, now(),#{creatorId},#{creator})
+	</insert>
+	<select id="getCmsNoteList" resultType="com.examstack.common.domain.cms.CmsNote">
+		select id AS id , note_name as noteName, note_content AS noteContent,
+		 creator_id AS creatorId ,creator AS creator,create_time AS createTime  FROM CMS_NOTE ORDER BY id desc
+	</select>
+	<select id="getCmsNoteById" resultType="com.examstack.common.domain.cms.CmsNote">
+		select id AS id , note_name as noteName, note_content AS noteContent,
+		 creator_id AS creatorId ,creator AS creator,create_time AS createTime  FROM CMS_NOTE
+		 WHERE id = #{id}
+	</select>
+
+	<delete id="deleteCmsNoteById">
+		delete from CMS_NOTE where
+		id=#{id}
+	</delete>
+
+	<update id="updateCmsNote">
+		update CMS_NOTE
+		<set>
+			<if test="noteName != null">
+				note_name = #{noteName},
+			</if>
+			<if test="noteContent != null">
+				note_content = #{noteContent},
+			</if>
+			<if test="creatorId != 0">
+				creator_id=#{creatorId},
+			</if>
+			<if test="creator != null">
+				creator = #{creator},
+			</if>
+			create_time = now(),
+		</set>
+		<where>
+			id = #{id}
+		</where>
+	</update>
+</mapper>

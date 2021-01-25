@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.examstack.portal.persistence.CmsExpertMapper">
+	<insert id="addCmsExpert" parameterType="com.examstack.common.domain.expert.CmsExpert" useGeneratedKeys="true" keyProperty="id" >
+		insert into cms_expert(title,content,cat_id,create_time,creator_id,creator)
+		values(#{title},#{content},#{catId}, now(),#{creatorId},#{creator})
+	</insert>
+	<select id="getCmsExpertList" resultType="com.examstack.common.domain.expert.CmsExpert">
+		select CMS_EXPERT.id AS id , CMS_EXPERT.title as title, CMS_EXPERT.content AS content, CMS_EXPERT.cat_id AS catId,cms_cat.cat_name AS catName,
+		 CMS_EXPERT.creator_id AS creatorId ,CMS_EXPERT.creator AS creator,CMS_EXPERT.create_time AS createTime  FROM CMS_EXPERT
+		 LEFT JOIN cms_cat ON CMS_EXPERT.cat_id = cms_cat.id
+		 WHERE 1=1
+		<if test="catId != null and catId != ''">
+			AND CMS_EXPERT.cat_id = #{catId}
+		</if>
+		 ORDER BY CMS_EXPERT.id DESC
+	</select>
+	<select id="getCmsExpertById" resultType="com.examstack.common.domain.expert.CmsExpert">
+		select id AS id , title as title, content AS content, cat_id AS catId,
+		 creator_id AS creatorId ,creator AS creator,create_time AS createTime  FROM CMS_EXPERT
+		 WHERE id = #{id}
+	</select>
+
+	<delete id="deleteCmsExpertById">
+		delete from CMS_EXPERT where
+		id=#{id}
+	</delete>
+
+	<update id="updateCmsExpert">
+		update CMS_EXPERT
+		<set>
+			<if test="title != null">
+				title = #{title},
+			</if>
+			<if test="content != null">
+				content = #{content},
+			</if>
+			<if test="catId != null">
+				cat_id = #{catId},
+			</if>
+			<if test="creatorId != 0">
+				creator_id=#{creatorId},
+			</if>
+			<if test="creator != null">
+				creator = #{creator},
+			</if>
+			create_time = now(),
+		</set>
+		<where>
+			id = #{id}
+		</where>
+	</update>
+</mapper>
