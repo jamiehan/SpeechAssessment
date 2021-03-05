@@ -1,8 +1,15 @@
 package com.examstack.portal.controller.action;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
+import com.examstack.common.util.OutputObject;
+import com.examstack.common.util.ReturnCode;
+import com.examstack.common.util.TokenUtil;
+import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
@@ -129,4 +136,29 @@ public class UserAction {
 		
 		return message;
 	}
+
+	@RequestMapping(value = {"/api/login"}, method = RequestMethod.POST,produces = "application/json;charset=utf-8")
+	@ResponseBody
+	public String login(@RequestBody User user){
+
+		User userInfo = userService.getUserByName(user.getUserName());
+		// 通过用户名从数据库中查询出该用户
+		if (userInfo == null){
+			return new Gson().toJson(new OutputObject(ReturnCode.FAIL,"用户不存在",user));
+		}
+
+		// 密码校验
+		String encodePwd = new StandardPasswordEncoderForSha1().encode(user.getPassword() + "{" + user.getUserName().toLowerCase() + "}");
+		if ( userInfo.getPassword().equals(encodePwd) == false ){
+			return new Gson().toJson(new OutputObject(ReturnCode.FAIL,"密码不正确",user));
+		}
+
+		String token = TokenUtil.sign(new User(user.getUserName()));
+		Map<String,Object> hs =new HashMap<>();
+		hs.put("token",token);
+		hs.put("userid", userInfo.getUserId());
+		return new Gson().toJson(new OutputObject(String.valueOf(HttpStatus.OK.value()),"成功",hs));
+
+	}
+
 }

@@ -9,7 +9,12 @@ import java.util.Map;
 import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
+import com.examstack.common.domain.user.User;
+import com.examstack.common.util.*;
+import com.examstack.portal.service.*;
+import org.codehaus.jackson.map.util.JSONPObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -28,15 +33,10 @@ import com.examstack.common.domain.question.KnowledgePoint;
 import com.examstack.common.domain.question.QuestionQueryResult;
 import com.examstack.common.domain.question.QuestionStatistic;
 import com.examstack.common.domain.question.QuestionType;
-import com.examstack.common.util.Page;
-import com.examstack.common.util.QuestionAdapter;
 import com.examstack.portal.security.UserInfo;
-import com.examstack.portal.service.ExamPaperService;
-import com.examstack.portal.service.ExamService;
-import com.examstack.portal.service.QuestionHistoryService;
-import com.examstack.portal.service.QuestionService;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 public class ExamPage {
@@ -49,6 +49,8 @@ public class ExamPage {
 	private QuestionHistoryService questionHistoryService;
 	@Autowired
 	private QuestionService questionService;
+	@Autowired
+	private UserService userService;
 
 	@RequestMapping(value = "/exam-list", method = RequestMethod.GET)
 	public String examListPage(Model model, HttpServletRequest request) {
@@ -74,9 +76,49 @@ public class ExamPage {
 		return "exam";
 	}
 
+	@RequestMapping(value = "/exam-list-api", method = RequestMethod.POST,produces = "application/json;charset=utf-8")
+	@ResponseBody
+	public String examListPageApi(HttpServletRequest request, HttpServletResponse httpServletResponse, String token) {
+
+		if( TokenUtil.verify(token) || TokenUtil.getUserNameFromToken(token) == null){
+			return new Gson().toJson(new OutputObject(ReturnCode.FAIL,"验证失败，您无权访问",token));
+		}
+
+		String userName = TokenUtil.getUserNameFromToken(token);
+		User user = userService.getUserByName(userName);
+
+		Map resultMap = new HashMap();
+
+		int userId = 0;
+		/*if (SecurityContextHolder.getContext().getAuthentication() != null && !SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString().endsWith("anonymousUser")){
+
+			UserInfo userInfo = (UserInfo) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+			userId = userInfo.getUserid();
+		}*/
+		if ( user != null ) {
+			userId = user.getUserId();
+		}
+
+		Page<Exam> page = new Page<Exam>();
+		page.setPageSize(10);
+		page.setPageNo(1);
+		List<Exam> examListToApply = examService.getExamListToApply(userId, page);
+		List<Exam> examListToStart = examService.getExamListToStart(userId, null, 1, 2);
+		List<Exam> modelTestToStart = examService.getExamList(null, 3);
+		resultMap.put("examListToApply", examListToApply);
+		resultMap.put("examListToStart", examListToStart);
+		resultMap.put("modelTestToStart", modelTestToStart);
+		resultMap.put("userId", userId);
+
+		return new Gson().toJson(new OutputObject(ReturnCode.SUCCESS,"成功",
+				resultMap));
+	}
+
+
+
 	/**
 	 * 开始考试（公有考试和私有考试）
-	 * 
+	 *
 	 * @param model
 	 * @param request
 	 * @param examId
@@ -102,15 +144,15 @@ public class ExamPage {
 				.getUserExamHistByUserIdAndExamId(userInfo.getUserid(), examId, 0, 1, 2, 3);
 		Date startTime = examHistory.getStartTime() == null ? new Date() : examHistory.getStartTime();
 		switch (examHistory.getApproved()) {
-		case 0:
-			model.addAttribute("errorMsg", "考试未审核");
-			return "error";
-		case 2:
-			model.addAttribute("errorMsg", "已交卷，不能重复考试");
-			return "error";
-		case 3:
-			model.addAttribute("errorMsg", "已阅卷，不能重复考试");
-			return "error";
+			case 0:
+				model.addAttribute("errorMsg", "考试未审核");
+				return "error";
+			case 2:
+				model.addAttribute("errorMsg", "已交卷，不能重复考试");
+				return "error";
+			case 3:
+				model.addAttribute("errorMsg", "已阅卷，不能重复考试");
+				return "error";
 		}
 		ExamPaper examPaper = examPaperService.getExamPaperById(examHistory.getExamPaperId());
 		String content = examPaper.getContent();
@@ -127,7 +169,73 @@ public class ExamPage {
 			sb.append(adapter.getUserExamPaper());
 		}
 		//SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd HHmmss");
-		
+
+		model.addAttribute("startTime", startTime);
+		model.addAttribute("examHistoryId", examHistory.getHistId());
+		model.addAttribute("examId", examHistory.getExamId());
+		model.addAttribute("examPaperId", examHistory.getExamPaperId());
+		model.addAttribute("duration", duration * 60);
+		model.addAttribute("htmlStr", sb.toString());
+
+		userInfo.setHistId(0);
+		return "examing";
+	}
+
+	/**
+	 * 开始考试（公有考试和私有考试）
+	 *
+	 * @param model
+	 * @param request
+	 * @param examId
+	 * @return
+	 */
+	@RequestMapping(value = "/exam-start-api/{examId}", method = RequestMethod.GET)
+	@ResponseBody
+	public String examStartPageApi(Model model, HttpServletRequest request, @PathVariable("examId") int examId) {
+
+		//TO-DO:学员开始考试时，将开始时间传到消息队列，用户更新用户开始考试的时间。如果数据库中时间不为空，则不更新
+		UserInfo userInfo = (UserInfo) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		String strUrl = "http://" + request.getServerName() // 服务器地址
+				+ ":" + request.getServerPort() + "/";
+
+		int duration = 0;
+		Exam exam = examService.getExamById(examId);
+
+		if (exam.getApproved() != 1 || exam.getExpTime().before(new Date()) || exam.getExamType() == 3) {
+			model.addAttribute("errorMsg", "考试未审核或当前时间不能考试或考试类型错误");
+			return "error";
+		}
+
+		ExamHistory examHistory = examService
+				.getUserExamHistByUserIdAndExamId(userInfo.getUserid(), examId, 0, 1, 2, 3);
+		Date startTime = examHistory.getStartTime() == null ? new Date() : examHistory.getStartTime();
+		switch (examHistory.getApproved()) {
+			case 0:
+				model.addAttribute("errorMsg", "考试未审核");
+				return "error";
+			case 2:
+				model.addAttribute("errorMsg", "已交卷，不能重复考试");
+				return "error";
+			case 3:
+				model.addAttribute("errorMsg", "已阅卷，不能重复考试");
+				return "error";
+		}
+		ExamPaper examPaper = examPaperService.getExamPaperById(examHistory.getExamPaperId());
+		String content = examPaper.getContent();
+
+		Gson gson = new Gson();
+		duration = examPaper.getDuration();
+
+		List<QuestionQueryResult> questionList = gson.fromJson(content, new TypeToken<List<QuestionQueryResult>>() {
+		}.getType());
+
+		StringBuilder sb = new StringBuilder();
+		for (QuestionQueryResult question : questionList) {
+			QuestionAdapter adapter = new QuestionAdapter(question, strUrl);
+			sb.append(adapter.getUserExamPaper());
+		}
+		//SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd HHmmss");
+
 		model.addAttribute("startTime", startTime);
 		model.addAttribute("examHistoryId", examHistory.getHistId());
 		model.addAttribute("examId", examHistory.getExamId());
@@ -233,6 +341,45 @@ public class ExamPage {
 		model.addAttribute("examId", history.getExamId());
 		return "student-answer-sheet";
 	}
+
+	/**
+	 * 学员试卷
+	 * @param model
+	 * @param request
+	 * @param examhistoryId
+	 * @return
+	 */
+	@RequestMapping(value = "/student-answer-sheet-api/{examId}", method = RequestMethod.GET)
+	@ResponseBody
+	private String studentAnswerSheetPageApi(Model model, HttpServletRequest request, @PathVariable int examId) {
+
+		UserInfo userInfo = (UserInfo) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		ExamHistory history = examService.getUserExamHistByUserIdAndExamId(userInfo.getUserid(), examId, 2, 3);
+		int examPaperId = history.getExamPaperId();
+
+		String strUrl = "http://" + request.getServerName() // 服务器地址
+				+ ":" + request.getServerPort() + "/";
+
+		ExamPaper examPaper = examPaperService.getExamPaperById(examPaperId);
+		StringBuilder sb = new StringBuilder();
+		if(examPaper.getContent() != null && !examPaper.getContent().equals("")){
+			Gson gson = new Gson();
+			String content = examPaper.getContent();
+			List<QuestionQueryResult> questionList = gson.fromJson(content, new TypeToken<List<QuestionQueryResult>>(){}.getType());
+
+			for(QuestionQueryResult question : questionList){
+				QuestionAdapter adapter = new QuestionAdapter(question,strUrl);
+				sb.append(adapter.getStringFromXML());
+			}
+		}
+
+		model.addAttribute("htmlStr", sb);
+		model.addAttribute("exampaperid", examPaperId);
+		model.addAttribute("examHistoryId", history.getHistId());
+		model.addAttribute("exampapername", examPaper.getName());
+		model.addAttribute("examId", history.getExamId());
+		return "student-answer-sheet";
+	}
 	
 	@RequestMapping(value = "student/finish-exam/{examId}", method = RequestMethod.GET)
 	public String examFinishedPage(Model model,@PathVariable("examId") int examId) {
@@ -264,6 +411,67 @@ public class ExamPage {
 		Map<Integer,KnowledgePoint> pointMap = questionService.getKnowledgePointByFieldId(null);
 		HashMap<Integer, Boolean> answer = new HashMap<Integer, Boolean>();
 		
+		for(QuestionQueryResult result : questionQueryList){
+			QuestionStatistic statistic = reportResultMap.get(result.getKnowledgePointId());
+			if(statistic == null)
+				statistic = new QuestionStatistic();
+			statistic.setPointId(result.getKnowledgePointId());
+			statistic.setPointName(pointMap.get(result.getKnowledgePointId()).getPointName());
+			statistic.setAmount(statistic.getAmount() + 1);
+			if(hm.get(result.getQuestionId()).isRight()){
+				statistic.setRightAmount(statistic.getRightAmount() + 1);
+				right ++;
+				answer.put(result.getQuestionId(), true);
+			}else{
+				statistic.setWrongAmount(statistic.getWrongAmount() + 1);
+				wrong ++;
+				answer.put(result.getQuestionId(), false);
+			}
+			total ++;
+			reportResultMap.put(result.getKnowledgePointId(), statistic);
+		}
+
+		model.addAttribute("total", total);
+		model.addAttribute("wrong", wrong);
+		model.addAttribute("right", right);
+		model.addAttribute("reportResultMap", reportResultMap);
+		model.addAttribute("create_time", history.getCreateTime());
+		model.addAttribute("answer", answer);
+		model.addAttribute("idList", idList);
+		return "exam-finished";
+	}
+
+	@RequestMapping(value = "/finish-exam-api/{examId}", method = RequestMethod.GET)
+	@ResponseBody
+	public String examFinishedPageApi(Model model,@PathVariable("examId") int examId) {
+		UserInfo userInfo = (UserInfo) SecurityContextHolder.getContext()
+				.getAuthentication().getPrincipal();
+
+		ExamHistory history = examService.getUserExamHistByUserIdAndExamId(userInfo.getUserid(), examId, 2, 3);
+		Gson gson = new Gson();
+		List<QuestionQueryResult> questionList = gson.fromJson(history.getContent(), new TypeToken<List<QuestionQueryResult>>(){}.getType());
+
+		List<Integer> idList = new ArrayList<Integer>();
+		for (QuestionQueryResult q : questionList) {
+			idList.add(q.getQuestionId());
+		}
+
+		AnswerSheet as = gson.fromJson(history.getAnswerSheet(), AnswerSheet.class);
+
+		HashMap<Integer, AnswerSheetItem> hm = new HashMap<Integer,AnswerSheetItem>();
+		for(AnswerSheetItem item : as.getAnswerSheetItems()){
+			hm.put(item.getQuestionId(), item);
+		}
+
+		int total = questionList.size();
+		int wrong = 0;
+		int right = 0;
+
+		HashMap<Integer, QuestionStatistic> reportResultMap = new HashMap<Integer, QuestionStatistic>();
+		List<QuestionQueryResult> questionQueryList = questionService.getQuestionAnalysisListByIdList(idList);
+		Map<Integer,KnowledgePoint> pointMap = questionService.getKnowledgePointByFieldId(null);
+		HashMap<Integer, Boolean> answer = new HashMap<Integer, Boolean>();
+
 		for(QuestionQueryResult result : questionQueryList){
 			QuestionStatistic statistic = reportResultMap.get(result.getKnowledgePointId());
 			if(statistic == null)

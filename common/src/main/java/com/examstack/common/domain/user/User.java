@@ -28,6 +28,15 @@ public class User implements Serializable {
 	private String department;
 	private String filePath;
 	private String fileName;
+
+	public User(){
+
+	}
+
+	public User(String userName) {
+		this.userName = userName;
+	}
+
 	public int getDepId() {
 		return depId;
 	}
