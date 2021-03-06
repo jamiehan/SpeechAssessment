@@ -28,6 +28,8 @@ public class User implements Serializable {
 	private String department;
 	private String filePath;
 	private String fileName;
+	private String token;
+
 
 	public User(){
 
@@ -160,5 +162,13 @@ public class User implements Serializable {
 
 	public void setFileName(String fileName) {
 		this.fileName = fileName;
+	}
+
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
 	}
 }
