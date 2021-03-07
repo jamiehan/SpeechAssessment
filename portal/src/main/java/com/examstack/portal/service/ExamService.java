@@ -2,6 +2,7 @@ package com.examstack.portal.service;
 
 import java.util.List;
 
+import com.examstack.common.domain.exam.AnswerSheet;
 import com.examstack.common.domain.exam.Exam;
 import com.examstack.common.domain.exam.ExamHistory;
 import com.examstack.common.util.Page;
@@ -76,4 +77,11 @@ public interface ExamService {
 	 * @return
 	 */
 	public List<Exam> getExamList(Page<Exam> page,int ... typeIdList);
+
+	/**
+	 * 更新答题卡及得分
+	 * @param answerSheet
+	 * @param answerSheetStr
+	 */
+	public void updateUserExamHist(AnswerSheet answerSheet, String answerSheetStr, int approved);
 }

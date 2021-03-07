@@ -2,6 +2,7 @@ package com.examstack.portal.persistence;
 
 import java.util.List;
 
+import com.examstack.common.domain.exam.AnswerSheet;
 import org.apache.ibatis.annotations.Param;
 import com.examstack.common.domain.exam.Exam;
 import com.examstack.common.domain.exam.ExamHistory;
@@ -77,4 +78,12 @@ public interface ExamMapper {
 	 * @return
 	 */
 	public List<Exam> getExamList(@Param("array") int[] idList,@Param("page") Page<Exam> page);
+
+	/**
+	 * 更新答题卡及得分
+	 * @param answerSheet
+	 * @param answerSheetStr
+	 */
+	public void updateUserExamHist(@Param("answerSheet") AnswerSheet answerSheet, @Param("answerSheetStr") String answerSheetStr, @Param("approved") int approved);
+
 }

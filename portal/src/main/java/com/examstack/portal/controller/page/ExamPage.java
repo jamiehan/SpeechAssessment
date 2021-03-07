@@ -418,9 +418,10 @@ public class ExamPage {
 		Map<String,Object> hs =new HashMap<>();
 
 		hs.put("questionList",questionList);
-		hs.put("exampaperid", examPaperId);
+		hs.put("answerSheet",history.getAnswerSheet());
+		hs.put("exampaperId", examPaperId);
 		hs.put("examHistoryId", history.getHistId());
-		hs.put("exampapername", examPaper.getName());
+		hs.put("exampaperName", examPaper.getName());
 		hs.put("examId", history.getExamId());
 		return new Gson().toJson(new OutputObject(String.valueOf(HttpStatus.OK.value()),"成功",hs));
 	}
@@ -485,9 +486,14 @@ public class ExamPage {
 		return "exam-finished";
 	}
 
-	@RequestMapping(value = "/finish-exam-api", method = RequestMethod.GET, produces = "text/html;charset=utf-8")
+	@RequestMapping(value = "/finish-exam-api", method = RequestMethod.POST, produces = "application/json;charset=UTF-8")
 	@ResponseBody
-	public String examFinishedPageApi(Model model,@RequestParam("examId") int examId, @RequestParam("token") String token) {
+	public String examFinishedPageApi(Model model,@RequestBody Map<String,Object> param) {
+
+		String token = (String)param.get("token");
+		Integer examId = Integer.valueOf((String)param.get("examId"));
+
+		AnswerSheet answerSheet = new Gson().fromJson(new Gson().toJson(param.get("answerSheet")), AnswerSheet.class);
 
 		if( !TokenUtil.verify(token) || TokenUtil.getUserNameFromToken(token) == null){
 			return new Gson().toJson(new OutputObject(ReturnCode.FAIL,"验证失败，您无权访问",token));
@@ -496,21 +502,21 @@ public class ExamPage {
 		String userName = TokenUtil.getUserNameFromToken(token);
 		User user = userService.getUserByName(userName);
 
-		Map resultMap = new HashMap();
-
 		int userId = 0;
 
 		if ( user != null ) {
 			userId = user.getUserId();
 		}
 
+		examService.updateUserExamHist(answerSheet,new Gson().toJson(param.get("answerSheet")),3);
+
 		ExamHistory history = examService.getUserExamHistByUserIdAndExamId(userId, examId, 2, 3);
 		Gson gson = new Gson();
 		List<QuestionQueryResult> questionList = gson.fromJson(history.getContent(), new TypeToken<List<QuestionQueryResult>>(){}.getType());
 
-		List<Integer> idList = new ArrayList<Integer>();
+		List<Integer> questionIdList = new ArrayList<Integer>();
 		for (QuestionQueryResult q : questionList) {
-			idList.add(q.getQuestionId());
+			questionIdList.add(q.getQuestionId());
 		}
 
 		AnswerSheet as = gson.fromJson(history.getAnswerSheet(), AnswerSheet.class);
@@ -520,13 +526,14 @@ public class ExamPage {
 			hm.put(item.getQuestionId(), item);
 		}
 
-		int total = questionList.size();
-		int wrong = 0;
-		int right = 0;
+		int totalNum = questionList.size();
+		int wrongNum = 0;
+		int rightNum = 0;
 
 		HashMap<Integer, QuestionStatistic> reportResultMap = new HashMap<Integer, QuestionStatistic>();
-		List<QuestionQueryResult> questionQueryList = questionService.getQuestionAnalysisListByIdList(idList);
+		List<QuestionQueryResult> questionQueryList = questionService.getQuestionAnalysisListByIdList(questionIdList);
 		Map<Integer,KnowledgePoint> pointMap = questionService.getKnowledgePointByFieldId(null);
+
 		HashMap<Integer, Boolean> answer = new HashMap<Integer, Boolean>();
 
 		for(QuestionQueryResult result : questionQueryList){
@@ -538,26 +545,26 @@ public class ExamPage {
 			statistic.setAmount(statistic.getAmount() + 1);
 			if(hm.get(result.getQuestionId()).isRight()){
 				statistic.setRightAmount(statistic.getRightAmount() + 1);
-				right ++;
+				rightNum ++;
 				answer.put(result.getQuestionId(), true);
 			}else{
 				statistic.setWrongAmount(statistic.getWrongAmount() + 1);
-				wrong ++;
+				wrongNum ++;
 				answer.put(result.getQuestionId(), false);
 			}
-			total ++;
+			totalNum ++;
 			reportResultMap.put(result.getKnowledgePointId(), statistic);
 		}
 
 		Map<String,Object> hs =new HashMap<>();
 
-		hs.put("total", total);
-		hs.put("wrong", wrong);
-		hs.put("right", right);
+		hs.put("totalNum", totalNum);
+		hs.put("wrongNum", wrongNum);
+		hs.put("rightNum", rightNum);
 		hs.put("reportResultMap", reportResultMap);
 		hs.put("create_time", history.getCreateTime());
 		hs.put("answer", answer);
-		hs.put("idList", idList);
+		hs.put("questionIdList", questionIdList);
 //		return "exam-finished";
 		return new Gson().toJson(new OutputObject(String.valueOf(HttpStatus.OK.value()),"成功",hs));
 	}

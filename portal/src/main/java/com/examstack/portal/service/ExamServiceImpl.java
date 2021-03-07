@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+import com.examstack.common.domain.exam.AnswerSheet;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -94,5 +95,10 @@ public class ExamServiceImpl implements ExamService {
 		if(typeIdList != null && typeIdList.length == 0)
 			typeIdList = null;
 		return examMapper.getUserExamHistByUserId(userId, typeIdList, page);
+	}
+	@Override
+	public void updateUserExamHist(AnswerSheet answerSheet, String answerSheetStr, int approved) {
+		// TODO Auto-generated method stub
+		examMapper.updateUserExamHist(answerSheet, answerSheetStr,  approved);
 	}
 }

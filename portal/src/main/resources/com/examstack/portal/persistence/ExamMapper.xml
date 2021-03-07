@@ -126,4 +126,15 @@
 		</if>
 		order by start_time desc
 	</select>
+	<update id="updateUserExamHist">
+		update et_user_exam_history
+		<set>
+			answer_sheet = #{answerSheetStr},point=#{answerSheet.pointMax},point_get=#{answerSheet.pointRaw},submit_time=sysdate(),duration=#{answerSheet.duration},
+			start_time=#{answerSheet.startTime}
+			<if test="approved != 0">
+				,approved=#{approved}
+			</if>
+		</set>
+		where id=#{answerSheet.examHistroyId}
+	</update>
 </mapper>
