@@ -4,15 +4,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.examstack.common.util.OutputObject;
-import com.examstack.common.util.ReturnCode;
-import com.examstack.common.util.TokenUtil;
-import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -20,9 +17,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.examstack.common.domain.exam.Message;
 import com.examstack.common.domain.user.User;
+import com.examstack.common.util.OutputObject;
+import com.examstack.common.util.ReturnCode;
 import com.examstack.common.util.StandardPasswordEncoderForSha1;
+import com.examstack.common.util.TokenUtil;
 import com.examstack.portal.security.UserInfo;
 import com.examstack.portal.service.UserService;
+import com.google.gson.Gson;
 
 @Controller
 public class UserAction {
@@ -139,6 +140,7 @@ public class UserAction {
 
 	@RequestMapping(value = {"/api/login"}, method = RequestMethod.POST,produces = "application/json;charset=utf-8")
 	@ResponseBody
+	@CrossOrigin
 	public String login(@RequestBody User user){
 
 		User userInfo = userService.getUserByName(user.getUserName());
